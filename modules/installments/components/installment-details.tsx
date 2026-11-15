@@ -10,11 +10,13 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { formatCurrency } from "@/lib/format"
 import { Edit2, Check, X } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export function InstallmentDetails({ installment, userCurrency }: { installment: InstallmentWithPayments, userCurrency: string }) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editAmount, setEditAmount] = useState<string>("")
+  const [scheduleFilter, setScheduleFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL")
 
   const handleToggle = async (paymentId: string, currentStatus: boolean) => {
     setLoadingId(paymentId)
@@ -97,102 +99,133 @@ export function InstallmentDetails({ installment, userCurrency }: { installment:
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Payment Schedule</CardTitle>
-          <CardDescription>Mark each month as paid to track your progress.</CardDescription>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <CardTitle>Payment Schedule</CardTitle>
+            <CardDescription>Mark each month as paid to track your progress.</CardDescription>
+          </div>
+          <Tabs value={scheduleFilter} onValueChange={(val) => setScheduleFilter(val as "ALL" | "ACTIVE" | "COMPLETED")}>
+            <TabsList>
+              <TabsTrigger value="ALL">All ({totalPayments})</TabsTrigger>
+              <TabsTrigger value="ACTIVE">Active ({totalPayments - paidPayments})</TabsTrigger>
+              <TabsTrigger value="COMPLETED">Completed ({paidPayments})</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {installment.payments.map((payment, index) => {
-              const isPastDue = !payment.isPaid && new Date(payment.dueDate) < new Date()
-              
+          {(() => {
+            const filteredPaymentsWithIndex = installment.payments
+              .map((payment, index) => ({ payment, originalIndex: index }))
+              .filter(({ payment }) => {
+                if (scheduleFilter === "ACTIVE") return !payment.isPaid
+                if (scheduleFilter === "COMPLETED") return payment.isPaid
+                return true
+              })
+
+            if (filteredPaymentsWithIndex.length === 0) {
               return (
-                <div 
-                  key={payment.id} 
-                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg transition-colors gap-3 sm:gap-0 ${
-                    payment.isPaid ? 'bg-muted/30 border-muted' : isPastDue ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <Checkbox 
-                      id={`payment-${payment.id}`}
-                      checked={payment.isPaid}
-                      disabled={loadingId === payment.id}
-                      onCheckedChange={() => handleToggle(payment.id, payment.isPaid)}
-                      className="h-5 w-5 shrink-0"
-                    />
-                    <div className="space-y-1">
-                      <label 
-                        htmlFor={`payment-${payment.id}`}
-                        className={`font-medium cursor-pointer ${payment.isPaid ? 'line-through text-muted-foreground' : ''}`}
-                      >
-                        Month {index + 1}
-                      </label>
-                      <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        <span>Due: {new Date(payment.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                        {isPastDue && <span className="text-red-500 font-medium text-xs">Past Due</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-row sm:flex-col justify-between sm:text-right items-center sm:items-end pl-9 sm:pl-0 gap-2">
-                    {editingId === payment.id ? (
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          className="w-24 h-8 text-right px-2"
-                          value={editAmount}
-                          onChange={(e) => setEditAmount(e.target.value)}
-                          autoFocus
-                          disabled={loadingId === payment.id}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => handleSaveAmount(payment.id)}
-                          disabled={loadingId === payment.id || !editAmount}
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => setEditingId(null)}
-                          disabled={loadingId === payment.id}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className={`font-semibold ${payment.isPaid ? 'text-muted-foreground' : ''}`}>
-                          {formatCurrency(payment.amount, userCurrency)}
-                        </span>
-                        {!payment.isPaid && (
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => {
-                              setEditingId(payment.id)
-                              setEditAmount(payment.amount.toString())
-                            }}
-                            className="opacity-50 hover:opacity-100 h-6 w-6"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                    {payment.paidDate && editingId !== payment.id && (
-                      <p className="text-xs text-muted-foreground mt-0 sm:mt-1">
-                        Paid on {new Date(payment.paidDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </p>
-                    )}
-                  </div>
+                <div className="flex flex-col items-center justify-center p-8 text-center border rounded-xl border-dashed bg-muted/20">
+                  <p className="text-muted-foreground text-sm">
+                    No {scheduleFilter === "ACTIVE" ? "active (unpaid)" : "completed"} payments found.
+                  </p>
                 </div>
               )
-            })}
-          </div>
+            }
+
+            return (
+              <div className="space-y-4">
+                {filteredPaymentsWithIndex.map(({ payment, originalIndex }) => {
+                  const isPastDue = !payment.isPaid && new Date(payment.dueDate) < new Date()
+                  
+                  return (
+                    <div 
+                      key={payment.id} 
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg transition-colors gap-3 sm:gap-0 ${
+                        payment.isPaid ? 'bg-muted/30 border-muted' : isPastDue ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <Checkbox 
+                          id={`payment-${payment.id}`}
+                          checked={payment.isPaid}
+                          disabled={loadingId === payment.id}
+                          onCheckedChange={() => handleToggle(payment.id, payment.isPaid)}
+                          className="h-5 w-5 shrink-0"
+                        />
+                        <div className="space-y-1">
+                          <label 
+                            htmlFor={`payment-${payment.id}`}
+                            className={`font-medium cursor-pointer ${payment.isPaid ? 'line-through text-muted-foreground' : ''}`}
+                          >
+                            Month {originalIndex + 1}
+                          </label>
+                          <div className="text-sm text-muted-foreground flex items-center gap-2">
+                            <span>Due: {new Date(payment.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            {isPastDue && <span className="text-red-500 font-medium text-xs">Past Due</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-row sm:flex-col justify-between sm:text-right items-center sm:items-end pl-9 sm:pl-0 gap-2">
+                        {editingId === payment.id ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              className="w-24 h-8 text-right px-2"
+                              value={editAmount}
+                              onChange={(e) => setEditAmount(e.target.value)}
+                              autoFocus
+                              disabled={loadingId === payment.id}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleSaveAmount(payment.id)}
+                              disabled={loadingId === payment.id || !editAmount}
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => setEditingId(null)}
+                              disabled={loadingId === payment.id}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className={`font-semibold ${payment.isPaid ? 'text-muted-foreground' : ''}`}>
+                              {formatCurrency(payment.amount, userCurrency)}
+                            </span>
+                            {!payment.isPaid && (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => {
+                                  setEditingId(payment.id)
+                                  setEditAmount(payment.amount.toString())
+                                }}
+                                className="opacity-50 hover:opacity-100 h-6 w-6"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                        {payment.paidDate && editingId !== payment.id && (
+                          <p className="text-xs text-muted-foreground mt-0 sm:mt-1">
+                            Paid on {new Date(payment.paidDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </CardContent>
       </Card>
     </div>
