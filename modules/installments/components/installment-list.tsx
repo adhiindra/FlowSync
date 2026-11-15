@@ -9,7 +9,7 @@ import { formatCurrency } from "@/lib/format"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export function InstallmentList({ installments, userCurrency }: { installments: InstallmentWithPayments[], userCurrency: string }) {
-  const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL")
+  const [filter, setFilter] = useState<"ACTIVE" | "COMPLETED" | "ALL">("ACTIVE")
 
   if (installments.length === 0) {
     return (
@@ -31,11 +31,11 @@ export function InstallmentList({ installments, userCurrency }: { installments: 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Tabs value={filter} onValueChange={(val) => setFilter(val as "ALL" | "ACTIVE" | "COMPLETED")}>
+        <Tabs value={filter} onValueChange={(val) => setFilter(val as "ACTIVE" | "COMPLETED" | "ALL")}>
           <TabsList>
-            <TabsTrigger value="ALL">All ({installments.length})</TabsTrigger>
             <TabsTrigger value="ACTIVE">Active ({activeCount})</TabsTrigger>
             <TabsTrigger value="COMPLETED">Completed ({completedCount})</TabsTrigger>
+            <TabsTrigger value="ALL">All ({installments.length})</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
